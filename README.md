@@ -27,7 +27,6 @@ Turn your photos or images into pixel art — perfect for retro-style games, ava
 ## 📦 Installation
 
 1. Clone this repository:
-   ```bash
    git clone https://github.com/yourusername/pixel-art-converter.git
    cd pixel-art-converter
 
