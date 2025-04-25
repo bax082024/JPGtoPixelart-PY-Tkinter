@@ -4,6 +4,7 @@ from tkinter.ttk import Combobox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 from PIL import Image, ImageTk, ExifTags
 import numpy as np
+import os
 
 # --- Global State ---
 original_image = None
@@ -46,8 +47,15 @@ def open_file():
 
 # --- Display Image ---
 def show_image(image):
-    image.thumbnail((300, 300))
-    preview = ImageTk.PhotoImage(image)
+    preview = image.copy()
+    preview.thumbnail((300, 300))
+    bg_color = bg_color_var.get()
+    if bg_color != "Transparent":
+        bg = Image.new("RGB", (300, 300), bg_color.lower())
+        offset = ((300 - preview.width) // 2, (300 - preview.height) // 2)
+        bg.paste(preview, offset)
+        preview = bg
+    preview = ImageTk.PhotoImage(preview)
     label.config(image=preview)
     label.image = preview
 
@@ -59,14 +67,12 @@ def pixelate_image():
         small = original_image.resize((level, level), resample=Image.NEAREST)
         pixelated = small.resize((300, 300), resample=Image.NEAREST)
 
-        # Apply palette if selected
         selected_palette = palette_combo.get()
         palette = PRESET_PALETTES.get(selected_palette)
 
         if palette:
             pixelated = apply_custom_palette(pixelated, palette)
         else:
-            # Default 16-color adaptive reduction
             colors = int(color_entry.get()) if color_entry.get().isdigit() else 16
             pixelated = pixelated.convert("P", palette=Image.ADAPTIVE, colors=colors).convert("RGB")
 
@@ -79,28 +85,43 @@ def save_image():
     if pixelated_image:
         file_path = filedialog.asksaveasfilename(
             defaultextension=".png",
-            filetypes=[("PNG", "*.png"), ("BMP", "*.bmp"), ("ICO", "*.ico")]
+            filetypes=[("PNG", "*.png"), ("BMP", "*.bmp"), ("ICO", "*.ico"), ("GIF", "*.gif")]
         )
         if file_path:
-            pixelated_image.save(file_path)
-            print(f"✅ Image saved to: {file_path}")
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext == ".gif":
+                pixelated_image.save(file_path, save_all=True)
+            else:
+                pixelated_image.save(file_path)
+            print(f"Image saved to: {file_path}")
 
+# --- Export 2x Sprite ---
+def export_2x_sprite():
+    global pixelated_image
+    if pixelated_image:
+        sprite = pixelated_image.resize((600, 600), resample=Image.NEAREST)
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG", "*.png")],
+            title="Save 2x Sprite Image"
+        )
+        if file_path:
+            sprite.save(file_path)
+            print(f"2x sprite image saved: {file_path}")
+
+# --- Reset Image ---
 def reset_image():
     global original_image
     if original_image:
         show_image(original_image)
-
 
 # --- Apply Custom Palette ---
 def apply_custom_palette(img, palette):
     img = img.convert("RGB")
     data = np.array(img)
     flat_data = data.reshape((-1, 3))
-
-    # Find nearest color in palette for each pixel
     new_data = np.array([min(palette, key=lambda c: np.linalg.norm(p - c)) for p in flat_data], dtype=np.uint8)
     new_data = new_data.reshape(data.shape)
-
     return Image.fromarray(new_data)
 
 # --- Drag & Drop ---
@@ -108,20 +129,30 @@ def handle_drop(event):
     dropped_file = event.data.strip('{}')
     load_image_from_path(dropped_file)
 
+# --- Background Color Logic ---
+def apply_bg_color(_=None):
+    color = bg_color_var.get()
+    if color == "Transparent":
+        label.config(bg=root.cget("bg"))
+    else:
+        label.config(bg=color.lower())
+
 # --- UI Setup ---
 root = TkinterDnD.Tk()
 root.title("Pixel Art Converter")
-root.geometry("400x600")
+root.geometry("420x650")
+
+bg_color_var = tk.StringVar(value="White")
 
 btn_open = tk.Button(root, text="Open Image", command=open_file)
-btn_open.pack(pady=10)
+btn_open.pack(pady=5)
 
 btn_pixelate = tk.Button(root, text="Pixelate Image", command=pixelate_image)
 btn_pixelate.pack(pady=5)
 
 pixel_slider = tk.Scale(root, from_=4, to=64, resolution=4, orient="horizontal", label="Pixelation Level")
 pixel_slider.set(32)
-pixel_slider.pack(pady=10)
+pixel_slider.pack(pady=5)
 
 color_label = tk.Label(root, text="Color Palette Limit")
 color_label.pack()
@@ -135,12 +166,19 @@ palette_combo = Combobox(root, values=list(PRESET_PALETTES.keys()))
 palette_combo.set("Default (16 colors)")
 palette_combo.pack(pady=5)
 
+bg_label = tk.Label(root, text="Preview Background")
+bg_label.pack()
+bg_dropdown = tk.OptionMenu(root, bg_color_var, "White", "Black", "Gray", "Transparent", command=apply_bg_color)
+bg_dropdown.pack(pady=5)
+
 btn_save = tk.Button(root, text="Save Pixelated Image", command=save_image)
-btn_save.pack(pady=10)
+btn_save.pack(pady=5)
+
+btn_export_2x = tk.Button(root, text="Export 2x Sprite Size", command=export_2x_sprite)
+btn_export_2x.pack(pady=5)
 
 btn_reset = tk.Button(root, text="Reset to Original", command=reset_image)
 btn_reset.pack(pady=5)
-
 
 label = tk.Label(root)
 label.pack(pady=10)
