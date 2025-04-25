@@ -1,17 +1,18 @@
 import tkinter as tk
 from tkinter import filedialog, Label, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from PIL import Image, ImageTk, ExifTags
 
 original_image = None
-last_pixelated_image = None  # Store last pixelated image
+last_pixelated_image = None
 
 
-def open_file():
+def load_image_from_path(file_path):
     global original_image
-    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png *.jpg *.jpeg")])
     if file_path:
         img = Image.open(file_path)
 
+        # Handle EXIF orientation
         try:
             for orientation in ExifTags.TAGS.keys():
                 if ExifTags.TAGS[orientation] == 'Orientation':
@@ -32,6 +33,11 @@ def open_file():
         show_image(img)
 
 
+def open_file():
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png *.jpg *.jpeg")])
+    load_image_from_path(file_path)
+
+
 def show_image(image):
     image.thumbnail((300, 300))
     preview = ImageTk.PhotoImage(image)
@@ -45,7 +51,7 @@ def pixelate_image():
         pixel_size = pixel_slider.get()
         pixelated = original_image.resize((pixel_size, pixel_size), resample=Image.NEAREST)
         pixelated = pixelated.resize((300, 300), resample=Image.NEAREST)
-        last_pixelated_image = pixelated.copy()  # Save for export
+        last_pixelated_image = pixelated.copy()
         show_image(pixelated)
 
 
@@ -64,10 +70,15 @@ def save_image():
         messagebox.showwarning("No image", "Please pixelate an image before saving.")
 
 
-# --- UI ---
-root = tk.Tk()
+def handle_drop(event):
+    dropped_file = event.data.strip('{}')  # Strip curly braces if path has spaces
+    load_image_from_path(dropped_file)
+
+
+# --- UI Setup ---
+root = TkinterDnD.Tk()
 root.title("Pixel Art Converter")
-root.geometry("400x550")
+root.geometry("400x580")
 
 btn_open = tk.Button(root, text="Open Image", command=open_file)
 btn_open.pack(pady=10)
@@ -75,16 +86,19 @@ btn_open.pack(pady=10)
 btn_pixelate = tk.Button(root, text="Pixelate Image", command=pixelate_image)
 btn_pixelate.pack(pady=5)
 
-# Pixelation slider
 pixel_slider = tk.Scale(root, from_=4, to=64, resolution=4, orient="horizontal", label="Pixelation Level")
 pixel_slider.set(32)
 pixel_slider.pack(pady=10)
 
-# Save button
 btn_save = tk.Button(root, text="Save Pixelated Image", command=save_image)
 btn_save.pack(pady=10)
 
 label = Label(root)
-label.pack()
+label.pack(pady=10)
+
+# Enable drag and drop
+root.drop_target_register(DND_FILES)
+root.dnd_bind('<<Drop>>', handle_drop)
+
 
 root.mainloop()
