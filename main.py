@@ -85,6 +85,12 @@ def save_image():
             pixelated_image.save(file_path)
             print(f"✅ Image saved to: {file_path}")
 
+def reset_image():
+    global original_image
+    if original_image:
+        show_image(original_image)
+
+
 # --- Apply Custom Palette ---
 def apply_custom_palette(img, palette):
     img = img.convert("RGB")
@@ -131,6 +137,10 @@ palette_combo.pack(pady=5)
 
 btn_save = tk.Button(root, text="Save Pixelated Image", command=save_image)
 btn_save.pack(pady=10)
+
+btn_reset = tk.Button(root, text="Reset to Original", command=reset_image)
+btn_reset.pack(pady=5)
+
 
 label = tk.Label(root)
 label.pack(pady=10)
